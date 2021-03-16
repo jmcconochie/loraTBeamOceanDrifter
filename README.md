@@ -2,7 +2,8 @@
 Ocean drifters using LoRa radio with simple time slicing on a TTGO T-Beam
 
 TTGO T-Beam modules are used for ocean drifter buoy tracking within the range of 
-LoRa transmission.  It can be use onshore as well for tracking the modules.
+LoRa transmission. The same code can be used onshore as well, for example, for tracking
+hikers in a region within LoRa range.
 
 ## Master Node
 A Master node is used to receive LoRa radio packets from the Servant nodes. The
