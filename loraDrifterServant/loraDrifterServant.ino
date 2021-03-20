@@ -20,7 +20,7 @@
 
 // E. Defines
 
-#define nSamplesFileWrite  30      // Number of samples to store in memory before file write
+#define nSamplesFileWrite  300      // Number of samples to store in memory before file write
 #define RX_GPS  15                 // ESP32 onboard GPS pins
 #define TX_GPS  12
 #define SCK     5    // GPIO5  -- SX1278's SCK
@@ -53,7 +53,7 @@ int ledState = LOW;
 int ledPin = 14;
 int webServerPin = 39;
 int gpsLastSecond = -1;
-
+int mhour, mminute, msecond;
 
 // H. This is the string literal for the main web page
 
@@ -153,7 +153,7 @@ void setup() {
   Serial.println("init ok");
 
   
- // G. SPIFFS to write data to onboard Flash
+  // G. SPIFFS to write data to onboard Flash
   if (!SPIFFS.begin(true)) {
     Serial.println("An Error has occurred while mounting SPIFFS - need to add retry");
     while (1);
@@ -205,11 +205,11 @@ void loop() {
       String sendPacket = String(drifterName) + "," + String(drifterTimeSlotSec) + "," + tTime + "," + tLocation + "," + String(nSamples) + "\n";
       LoRa.print(sendPacket);
       LoRa.endPacket(true);
+      delay(1000); // Don't send more than 1 packet
       csvOutStr += sendPacket; // Save any packets that are sent (debugging purposes).
     }
 
     // C. If this is a new GPS record then save it
-    int mhour, mminute, msecond;
     if (gps.time.second() != gpsLastSecond) {
       float mlon = gps.location.lng();
       float mlat = gps.location.lat();
@@ -225,19 +225,7 @@ void loop() {
     // D. Write data to onboard flash if nSamples is large enough
     Serial.println(String(nSamples));
     if (nSamples > nSamplesFileWrite) {  // only write after collecting a good number of samples
-      file = SPIFFS.open(csvFileName, FILE_APPEND);
-      if (!file) {
-        Serial.println("There was an error opening the file for writing");
-        lastFileWrite = "FAILED OPEN";
-      } else {
-        if (file.println(csvOutStr)) {
-          file.close();
-          csvOutStr = ""; nSamples = 0;
-          lastFileWrite = String(mhour, DEC) + ":" + String(mminute, DEC) + ":" + String(msecond, DEC);
-        } else {
-          lastFileWrite = "FAILED WRITE";
-        }
-      }
+      writeData2Flash();
     }
   }
 
@@ -269,6 +257,25 @@ void loop() {
 // =======================================================================================
 // D. Functions
 // =======================================================================================
+
+
+// D0. Write data to flash
+// 
+void writeData2Flash (){
+  file = SPIFFS.open(csvFileName, FILE_APPEND);
+  if (!file) {
+    Serial.println("There was an error opening the file for writing");
+    lastFileWrite = "FAILED OPEN";
+  } else {
+    if (file.println(csvOutStr)) {
+      file.close();
+      csvOutStr = ""; nSamples = 0;
+      lastFileWrite = String(mhour, DEC) + ":" + String(mminute, DEC) + ":" + String(msecond, DEC);
+    } else {
+      lastFileWrite = "FAILED WRITE";
+    }
+  }
+}
 
 
 // D1. LoRa has transmitted callback - flip flop the LED
@@ -333,6 +340,7 @@ void startWebServer(bool webServerOn) {
     });
     
     server.on("/getServant", HTTP_GET, [](AsyncWebServerRequest * request) {
+      writeData2Flash();
       request->send(SPIFFS, csvFileName, "text/plain", true);
     });
     server.on("/deleteServant", HTTP_GET,
@@ -346,6 +354,8 @@ void startWebServer(bool webServerOn) {
   } else {
     server.end();
     WiFi.disconnect();
+    WiFi.mode(WIFI_OFF);
+    btStop();
   }
 
 }

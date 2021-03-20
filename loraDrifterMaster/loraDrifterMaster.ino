@@ -59,7 +59,7 @@ void setup() {
     while (1);
   }
   LoRa.onReceive(loraProcessRXData);    // Callback to run when a packet is received
-  LoRa.receive();
+
 
   // E. WiFi Access Point start up
   WiFi.softAP(ssid, password);
@@ -70,6 +70,7 @@ void setup() {
     request->send_P(200, "text/html", index_html, processor);
   });
   server.on("/getMaster", HTTP_GET, [](AsyncWebServerRequest * request) {
+    writeData2Flash();
     request->send(SPIFFS, "/master.csv", "text/html", true);
   });
   server.on("/deleteMaster", HTTP_GET,
@@ -77,9 +78,8 @@ void setup() {
       file = SPIFFS.open("/master.csv", FILE_WRITE);
       file.close();
       lastFileWrite="";
-      request->send(200, "text/plain", "Success!");
+      request->send(200, "text/html", "<html><a href=\"http://"+IpAddress2String(WiFi.softAPIP())+"\">Success!  BACK </a></html>");
   });
-
   server.begin();
 
   // G. SPIFFS to write data to onboard Flash
@@ -87,6 +87,9 @@ void setup() {
     Serial.println("An Error has occurred while mounting SPIFFS - need to add retry");
     while (1);
   }
+
+  // H. Start LoRa reception
+  LoRa.receive();
 
 }
 
@@ -122,6 +125,22 @@ void loop() {
 
   // D. Write data to onboard flash
   if (nSamples > nSamplesFileWrite) {  // only write after collecting a good number of samples
+    writeData2Flash();
+  }
+
+  // Save to SD Card file ???
+
+
+}
+
+
+// =======================================================================================
+// D. Functions
+// =======================================================================================
+
+// D0. Write data to flash
+// 
+void writeData2Flash (){
     file = SPIFFS.open("/master.csv", FILE_APPEND);
     if (!file) {
       Serial.println("There was an error opening the file for writing");
@@ -135,17 +154,7 @@ void loop() {
         lastFileWrite = "FAILED WRITE";
       }
     }
-  }
-
-  // Save to SD Card file ???
-
-
 }
-
-
-// =======================================================================================
-// D. Functions
-// =======================================================================================
 
 
 // D1. Processing LoRa Packets - this is the callback called when a packet is recevied
@@ -169,7 +178,7 @@ void loraProcessRXData(int packetSize) {
   if (packet.substring(0, 1) == "D") {
     csvOutStr += packet; // Save all packets recevied (debugging purposes)
     int id = packet.substring(1, 3).toInt();
-    Serial.print("GotID:" + String(id));
+    Serial.print("GotID:" + String(id) + " ");
     s[id].ID = id;
     s[id].decode(packet);
     s[id].rssi = rssi.toInt();

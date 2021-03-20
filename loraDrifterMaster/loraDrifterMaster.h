@@ -20,7 +20,7 @@
 #include "axp20x.h"         // Not used on the versions I have but the new ones may need it
 
 // E. Defines
-#define nServantsMax  50           // Maximum number of servant drifters (just for setting array size)
+#define nServantsMax  20           // Maximum number of servant drifters (just for setting array size)
 #define nSamplesFileWrite  300      // Number of samples to store in memory before file write
 #define RX_GPS  15                 // ESP32 onboard GPS pins
 #define TX_GPS  12
@@ -201,13 +201,7 @@ const char index_html[] PROGMEM = R"rawliteral(
   %SERVANTS%
   </table>
   
-  <script>function toggleCheckbox(element) {
-    var xhr = new XMLHttpRequest();
-    if(element.checked){ xhr.open("GET", "/update?output="+element.id+"&state=1", true); }
-    else { xhr.open("GET", "/update?output="+element.id+"&state=0", true); }
-    xhr.send();
-   }
-  </script>
+
 </body>
 </html>
 )rawliteral";
