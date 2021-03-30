@@ -21,8 +21,8 @@
 // E. Defines
 
 #define nSamplesFileWrite  300      // Number of samples to store in memory before file write
-#define RX_GPS  15                 // ESP32 onboard GPS pins
-#define TX_GPS  12
+#define RX_GPS  15                 // ESP32 onboard GPS pins (V1.1 board needs different pins)
+#define TX_GPS  12    
 #define SCK     5    // GPIO5  -- SX1278's SCK
 #define MISO    19   // GPIO19 -- SX1278's MISnO
 #define MOSI    27   // GPIO27 -- SX1278's MOSI
@@ -32,6 +32,15 @@
 #define BAND  915E6
 
 
+// F. Functions
+void onTxDone();
+void resetGPSNMEAOutput(Stream &mySerial);
+void startWebServer(bool webServerOn);
+String processor(const String& var);
+String IpAddress2String(const IPAddress& ipAddress);
+
+
+
 // =======================================================================================
 // A. Global variables
 // =======================================================================================
@@ -39,7 +48,7 @@ String drifterName = "D01";   // ID send with packet
 int drifterTimeSlotSec = 15; // seconds after start of each GPS minute
 TinyGPSPlus gps;
 SFE_UBLOX_GPS myGPS;                  // U-blox object used for resetting the NMEA ouput
-//AXP20X_Class axp;                     // power management chip on T-Beam
+//AXP20X_Class axp;                     // power management chip on T-Beam v1.1
 const char* ssid = "DrifterServant";   // Wifi ssid and password
 const char* password = "Tracker1";
 String csvOutStr = "";                // Buffer for output file
@@ -53,6 +62,7 @@ int ledState = LOW;
 int ledPin = 14;
 int webServerPin = 39;
 int gpsLastSecond = -1;
+int myear, mmonth, mday;
 int mhour, mminute, msecond;
 
 // H. This is the string literal for the main web page
@@ -187,7 +197,6 @@ void setup() {
 void loop() {
   if (!webServerOn) {
 
-
     // A. Receive and Encode GPS data
     unsigned long start = millis();
     do
@@ -195,31 +204,34 @@ void loop() {
       while (Serial2.available())
         gps.encode(Serial2.read());
     } while (millis() - start < 500);
-    
-    // B. Send GPS data on LoRa if it is this units timeslot
-    if (gps.time.second() == drifterTimeSlotSec) {
-      Serial.println("sending packet");
-      LoRa.beginPacket();
-      String tTime = String(gps.time.hour()) + ":" + String(gps.time.minute()) + ":" + String(gps.time.second());
-      String tLocation = String(gps.location.lat(), 8) + "," + String(gps.location.lng(), 8) + "," + String(gps.location.age());
-      String sendPacket = String(drifterName) + "," + String(drifterTimeSlotSec) + "," + tTime + "," + tLocation + "," + String(nSamples) + "\n";
-      LoRa.print(sendPacket);
-      LoRa.endPacket(true);
-      delay(1000); // Don't send more than 1 packet
-      csvOutStr += sendPacket; // Save any packets that are sent (debugging purposes).
-    }
-
+   
     // C. If this is a new GPS record then save it
     if (gps.time.second() != gpsLastSecond) {
+          // B. Send GPS data on LoRa if it is this units timeslot
+          if (gps.time.second() == drifterTimeSlotSec) {
+              Serial.println("sending packet");
+              LoRa.beginPacket();
+              String tDate = String(gps.date.year()) + "-" + String(gps.date.month()) + "-" + String(gps.date.day());
+              String tTime = String(gps.time.hour()) + ":" + String(gps.time.minute()) + ":" + String(gps.time.second());
+              String tLocation = String(gps.location.lat(), 8) + "," + String(gps.location.lng(), 8) + "," + String(gps.location.age());
+              String sendPacket = String(drifterName) + "," + String(drifterTimeSlotSec) + "," + tDate + "," + tTime + "," + tLocation + "," + String(nSamples) + "\n";
+              LoRa.print(sendPacket);
+              LoRa.endPacket(true);
+              delay(1000); // Don't send more than 1 packet
+              csvOutStr += sendPacket; // Save any packets that are sent (debugging purposes).
+          }
       float mlon = gps.location.lng();
       float mlat = gps.location.lat();
+      myear = gps.date.year();
+      mmonth = gps.date.month();
+      mday = gps.date.day();
       mhour = gps.time.hour();
       mminute = gps.time.minute();
       msecond = gps.time.second();
       int mage = gps.location.age();
       gpsLastSecond = msecond;
       nSamples += 1;
-      csvOutStr += String(mhour) +  "," + String(mminute) + "," + String(msecond) + "," + String(mlon, 8) + "," + String(mlat, 8) + "," + String(mage) + "\n";
+      csvOutStr += String(myear) + "," + String(mmonth) + "," + String(mday) + "," + String(mhour) +  "," + String(mminute) + "," + String(msecond) + "," + String(mlon, 8) + "," + String(mlat, 8) + "," + String(mage) + "\n";
     }
 
     // D. Write data to onboard flash if nSamples is large enough
@@ -335,7 +347,7 @@ void startWebServer(bool webServerOn) {
         } else {
           file.print(drifterName+","+String(drifterTimeSlotSec));
           file.close();
-          request->send(200, "text/plain", "Success!");
+          request->send(200, "text/html", "<html><a href=\"http://"+IpAddress2String(WiFi.softAPIP())+"\">Success!  BACK </a></html>");
         }
     });
     
@@ -348,7 +360,7 @@ void startWebServer(bool webServerOn) {
       file = SPIFFS.open(csvFileName, FILE_WRITE);
       file.close();
       lastFileWrite = "";
-      request->send(200, "text/plain", "Success!");
+      request->send(200, "text/html", "<html><a href=\"http://"+IpAddress2String(WiFi.softAPIP())+"\">Success!  BACK </a></html>");
     });
     server.begin();
   } else {
@@ -359,7 +371,6 @@ void startWebServer(bool webServerOn) {
   }
 
 }
-
 
 
 

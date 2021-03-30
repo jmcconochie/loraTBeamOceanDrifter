@@ -220,6 +220,9 @@ void SerialGPSDecode(Stream &mySerial, TinyGPSPlus &myGPS) {
     // Update Master Data
     m.lon = gps.location.lng();
     m.lat = gps.location.lat();
+    m.year = gps.date.year();
+    m.month = gps.date.month();
+    m.day = gps.date.day();
     m.hour = gps.time.hour();
     m.minute = gps.time.minute();
     m.second = gps.time.second();

@@ -49,6 +49,9 @@ class Master
     Master();
     float lon;
     float lat;
+    int year;
+    int month;
+    int day;
     int hour;
     int minute;
     int second;
@@ -57,6 +60,9 @@ class Master
 Master::Master() {
   lon = 0.0;
   lat = 0.0;
+  year = 0;
+  month = 0;
+  day = 0;
   hour = 0;
   minute = 0;
   second = 0;
@@ -74,6 +80,9 @@ class Servant
     int ID;
     int loraUpdatePlanSec;
     int lastUpdateMasterTime;
+    int year;
+    int month;
+    int day;
     int hour;
     int minute;
     int second;
@@ -89,6 +98,9 @@ Servant::Servant() {
   ID = -1;
   loraUpdatePlanSec = 0;
   lastUpdateMasterTime = 0;
+  year = 0;
+  month = 0;
+  day = 0;
   hour = 0;
   minute = 0;
   second = 0;
@@ -114,6 +126,18 @@ void Servant::decode(String packet) {
   int comma2=packet.indexOf(",",comma1+1);
   loraUpdatePlanSec=packet.substring(comma1+1,comma2).toInt();
   lastUpdateMasterTime=millis(); 
+
+  // Date
+  comma1=comma2;  comma2=packet.indexOf(",",comma1+1);
+  String timeFull=packet.substring(comma1+1,comma2);
+  
+  int colon1=timeFull.indexOf("-");
+  int colon2=timeFull.indexOf("-",colon1+1);
+  year=timeFull.substring(0,colon1).toInt();
+  month=timeFull.substring(colon1+1,colon2).toInt();
+  day=timeFull.substring(colon2+1).toInt();
+
+  
   // Time
   comma1=comma2;  comma2=packet.indexOf(",",comma1+1);
   String timeFull=packet.substring(comma1+1,comma2);
